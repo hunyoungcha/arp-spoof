@@ -10,7 +10,7 @@ arphdr.o: mac.h ip.h arphdr.h arphdr.cpp
 
 ethhdr.o: mac.h ethhdr.h ethhdr.cpp
 
-ip.o: ip.h ip.cpp
+ip.o: ip.h ip.cpp iphdr.h
 
 mac.o : mac.h mac.cpp
 

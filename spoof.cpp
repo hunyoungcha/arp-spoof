@@ -31,7 +31,7 @@ Ip Spoof::GetAttackerIP(const char* interface) {
 }
 
 
-void Spoof::SetArpPacketDefault(struct EthArpPacket& packet) {
+void Spoof::SetDefaultArpPacket(struct EthArpPacket& packet) {
     packet.eth_.type_ = htons(EthHdr::Arp);
     packet.arp_.hrd_ = htons(ArpHdr::ETHER);
     packet.arp_.pro_ = htons(EthHdr::Ip4);
@@ -50,14 +50,14 @@ void Spoof::SetPacket(struct EthArpPacket &packet, Mac dmac, Mac smac, uint16_t 
 }
 
 void Spoof::SendPacket(pcap_t* pcap, struct EthArpPacket& packet) {
-	int res = pcap_sendpacket(pcap, reinterpret_cast<const u_char*>(&packet), sizeof(EthArpPacket));
+	int res = pcap_sendpacket(pcap, reinterpret_cast<const u_char*>(&packet), sizeof(packet));
 	if (res != 0) {
 		fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(pcap));
 		exit(PCAP_ERROR);
 	}
 }
 
-void Spoof::GetSenderMac(pcap_t* pcap) {
+void Spoof::GetSrcMac(pcap_t* pcap, std::string SendORTarget) {
     struct pcap_pkthdr* header;
     const u_char* packet;
     struct EthArpPacket *etharp;
@@ -73,7 +73,7 @@ void Spoof::GetSenderMac(pcap_t* pcap) {
         }
     } while (htons(etharp->eth_.type_) != EthHdr::Arp);
 
-    senderMac_= etharp->arp_.smac();
+    (SendORTarget == "Sender" ? senderMac_ : targetMac_) = etharp->arp_.smac();
 }
 
 void Spoof::SetSendnTargetIp(char* senderIP, char* targetIP){
@@ -81,6 +81,35 @@ void Spoof::SetSendnTargetIp(char* senderIP, char* targetIP){
     targetIP_ = Ip(targetIP);
 }
 
+void Spoof::RelayPacket(pcap_t* pcap, Mac attackerMac) {
+    //현재 arp 패킷으로 reply됨
+    //패킷의 mac만 변경해서 제대로 보내기
+    struct pcap_pkthdr* header;
+    const u_char* packet;
+    
+    while (1){ // 스레드 빼서 while문 따로 동작하도록
+        int res = pcap_next_ex(pcap, &header, &packet);
 
+        struct EthArpPacket *ethArp = (struct EthArpPacket *)packet;
+        ethArp->eth_.dmac_ = targetMac_;
+        ethArp->eth_.smac_ = attackerMac;
+    
+        Spoof::SendPacket(pcap, *ethArp);
+    }
 
+}
 
+// uint16_t Spoof::CheckPacketType(pcap_t* pcap){
+//     struct pcap_pkthdr* header;
+//     const u_char* packet;
+
+//     int res = pcap_next_ex(pcap, &header, &packet);
+
+//     struct EthHdr *eth = (struct EthHdr *)packet;
+
+//     return ntohs(eth->type_); 
+// }
+
+// void Spoof::ReInfection(pcap_t* pcap, struct EthArpPacket packet) { // TODO change func name
+//     ;
+// }

@@ -9,12 +9,20 @@
 #include <cstdio>
 #include "ethhdr.h"
 #include "arphdr.h"
+#include "iphdr.h"
 
 #pragma pack(push, 1)
 struct EthArpPacket final {
 	EthHdr eth_;
 	ArpHdr arp_;
 };
+
+struct EthIpPacket final {
+    EthHdr eth_;
+    IpHdr ip_;
+};
+
+
 #pragma pack(pop)
 
 
@@ -23,10 +31,13 @@ class Spoof {
         Mac GetAttackerMac(const char* interface);
         Ip GetAttackerIP(const char* interface);
         void SetSendnTargetIp(char* senderIP, char* targetIP);
-        void SetArpPacketDefault(struct EthArpPacket& packet);
+        void SetDefaultArpPacket(struct EthArpPacket& packet);
         void SetPacket(struct EthArpPacket &packet, Mac dmac, Mac smac, uint16_t op, Ip sip, Mac tmac, Ip tip);
         void SendPacket(pcap_t* pcap, struct EthArpPacket& packet);
-        void GetSenderMac(pcap_t* pcap);
+        void GetSrcMac(pcap_t* pcap, std::string SendORTarget);
+        void RelayPacket(pcap_t* pcap, Mac attackerMac);
+
+        // uint16_t Spoof::CheckPacketType(pcap_t* pcap);
 
         Mac senderMac_;
         Mac targetMac_;

