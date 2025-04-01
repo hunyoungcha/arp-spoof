@@ -90,12 +90,13 @@ void Spoof::SetSendnTargetIp(char* senderIP, char* targetIP){
     targetIP_ = Ip(targetIP);
 }
 
-void Spoof::RelayPacket(pcap_t* pcap, Mac attackerMac, Ip attackerIP) {
+int Spoof::RelayPacket(pcap_t* pcap, Mac attackerMac, Ip attackerIP) {
     //패킷의 mac만 변경해서 제대로 보내기
     //너무 많은 기능 들어가있음, 함수 나누기
     struct pcap_pkthdr* header;
     const u_char* packet;
-    int isSend = 0;
+    bool isArp = false;
+    int result = 0;
         
     int res = pcap_next_ex(pcap, &header, &packet);
 
@@ -120,6 +121,7 @@ void Spoof::RelayPacket(pcap_t* pcap, Mac attackerMac, Ip attackerIP) {
             struct ArpHdr *arp = (struct ArpHdr *) (cpPacket + ethLength);
             sip = ntohl(Ip(arp->sip()));
             tip = ntohl(Ip(arp->tip()));
+            isArp = true;
             break;
         }
             
@@ -132,8 +134,8 @@ void Spoof::RelayPacket(pcap_t* pcap, Mac attackerMac, Ip attackerIP) {
             exit(-1); //TODO Error Define
             break;
         };
-        
-    if (sip == senderIP_ && tip == targetIP_) {
+
+    if (sip == senderIP_ && tip == targetIP_) { //게이트웨이라면? -> 이 부분 처리해야 함
         eth->dmac_ = targetMac_;
         eth->smac_ = attackerMac;
         pcap_sendpacket(pcap, cpPacket, header->len);
@@ -143,6 +145,15 @@ void Spoof::RelayPacket(pcap_t* pcap, Mac attackerMac, Ip attackerIP) {
         eth->smac_ = attackerMac;
         pcap_sendpacket(pcap, cpPacket, header->len);
     }
-    free(cpPacket);
+    else if (isArp && (eth->smac_ == senderMac_) && (eth->dmac_ == attackerMac) ) {
+        //reinfection
+        result = 1;
+    }
+    else if (isArp && (eth->smac_ == targetMac_) && (eth->dmac_ == attackerMac) ) {
+        //reinfection
+        result = 1;
+    }
 
+    free(cpPacket);
+    return result;
 }

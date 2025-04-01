@@ -35,7 +35,7 @@ class Spoof {
         void SetPacket(struct EthArpPacket &packet, Mac dmac, Mac smac, uint16_t op, Ip sip, Mac tmac, Ip tip);
         void SendPacket(pcap_t* pcap, const u_char* , size_t size);
         void GetSrcMac(pcap_t* pcap, std::string SendORTarget);
-        void RelayPacket(pcap_t* pcap, Mac attackerMac, Ip attackerIP);
+        int RelayPacket(pcap_t* pcap, Mac attackerMac, Ip attackerIP);
         // uint16_t Spoof::CheckPacketType(pcap_t* pcap);
 
         Mac senderMac_;
