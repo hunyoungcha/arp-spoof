@@ -1,4 +1,5 @@
 LDLIBS=-lpcap
+# CXXFLAGS=-g # 디버깅 플래그 추가
 
 all: arp-spoof
 

