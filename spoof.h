@@ -28,21 +28,23 @@ struct EthIpPacket final {
 
 class Spoof {
     public:
-        Mac GetAttackerMac(const char* interface);
-        Ip GetAttackerIP(const char* interface);
+        void GetAttackerMac(const char* interface);
+        void GetAttackerIP(const char* interface);
         void SetSendnTargetIp(char* senderIP, char* targetIP);
         void SetDefaultArpPacket(struct EthArpPacket& packet);
         void SetPacket(struct EthArpPacket &packet, Mac dmac, Mac smac, uint16_t op, Ip sip, Mac tmac, Ip tip);
         void SendPacket(pcap_t* pcap, const u_char* , size_t size);
         void GetSrcMac(pcap_t* pcap, std::string SendORTarget);
-        int RelayPacket(pcap_t* pcap, Mac attackerMac, Ip attackerIP);
-        // uint16_t Spoof::CheckPacketType(pcap_t* pcap);
+        int RelayPacket(pcap_t* pcap);
 
         Mac senderMac_;
         Mac targetMac_;
+        Mac attackerMac_;
 
         Ip senderIP_;
         Ip targetIP_;
+        Ip attackerIP_;
+
 
     private:
 
